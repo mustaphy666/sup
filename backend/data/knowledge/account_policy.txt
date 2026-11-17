@@ -1,0 +1,13 @@
+SUPPORTFLOW ACCOUNT POLICY
+
+Customers can contact SupportFlow regarding account, subscription, payment, and transaction issues.
+
+SupportFlow verifies customer information before accessing account-specific information.
+
+SupportFlow protects customer information and does not disclose private account information to other customers.
+
+If an issue cannot be resolved using the available support tools, SupportFlow may create a support ticket for human assistance.
+
+Support tickets are assigned a unique ticket ID and initially have an open status.
+
+Customers should never provide passwords, one-time passwords, full payment card numbers, or other sensitive authentication information through support conversations.
