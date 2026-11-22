@@ -1,3 +1,5 @@
+import uuid
+import sqlite3
 from app.database import (
     create_refund,
     refund_exists,
@@ -147,7 +149,6 @@ def request_refund(
     transaction_id: str,
     reason: str,
 ):
-
     transactions = TRANSACTIONS.get(customer_id, [])
 
     transaction = next(
@@ -171,32 +172,41 @@ def request_refund(
             "error": "Only completed transactions can be refunded.",
         }
 
-    if refund_exists(transaction_id):
+    # Check whether this customer already requested a refund.
+    if refund_exists(customer_id, transaction_id):
         return {
             "success": False,
             "error": "A refund request already exists for this transaction.",
         }
 
-    existing_refunds = get_refunds(customer_id)
+    # Generate a unique refund ID.
+    refund_id = f"REFUND-{uuid.uuid4().hex[:12].upper()}"
 
-    refund_number = len(existing_refunds) + 1
+    try:
+        refund = create_refund(
+            refund_id=refund_id,
+            customer_id=customer_id,
+            transaction_id=transaction_id,
+            amount=transaction["amount"],
+            currency=transaction["currency"],
+            reason=reason,
+        )
 
-    refund_id = f"REFUND-{refund_number:04d}"
+        return {
+            "success": True,
+            "message": "Refund request created successfully.",
+            "refund": refund,
+        }
 
-    refund = create_refund(
-        refund_id=refund_id,
-        customer_id=customer_id,
-        transaction_id=transaction_id,
-        amount=transaction["amount"],
-        currency=transaction["currency"],
-        reason=reason,
-    )
+    except sqlite3.IntegrityError:
+        # Another request may have inserted the refund first.
+        if refund_exists(customer_id, transaction_id):
+            return {
+                "success": False,
+                "error": "A refund request already exists for this transaction.",
+            }
 
-    return {
-        "success": True,
-        "message": "Refund request created successfully.",
-        "refund": refund,
-    }
+        raise 
 
 
 def create_support_ticket(
