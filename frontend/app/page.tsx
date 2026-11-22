@@ -8,7 +8,7 @@ type Message = {
 };
 
 type Customer = {
-  customer_id: string;
+  customerId: string;
   name: string;
   email: string;
   plan: string;
@@ -41,10 +41,12 @@ type Ticket = {
   created_at: string;
 };
 
-const API_URL = "http://127.0.0.1:8000";
-const CUSTOMER_ID = "CUST001";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ||"http://127.0.0.1:8000";
 
 export default function Home() {
+  const [customerId, setCustomerId] = useState("");
+  const [token, setToken] = useState("");
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
 
@@ -72,37 +74,77 @@ export default function Home() {
   }, []);
 
   async function initialize() {
-    let id =
-      localStorage.getItem(
-        "supportflow_conversation_id"
-      );
+  try {
+    const savedToken = localStorage.getItem("supportflow_token");
+
+    if (!savedToken) {
+      window.location.href = "/login";
+      return;
+    }
+    setToken(savedToken);
+    const userResponse = await fetch(`${API_URL}/auth/me`, {
+      headers: {
+        Authorization: `Bearer ${savedToken}`,
+      },
+    });
+
+    if (!userResponse.ok) {
+      localStorage.removeItem("supportflow_token");
+      window.location.href = "/login";
+      return;
+    }
+
+    const user = await userResponse.json();
+    const id = user.customer_id;
 
     if (!id) {
-      id = crypto.randomUUID();
+      throw new Error("Customer ID was not returned by /auth/me");
+    }
 
+    setToken(savedToken);
+    setCustomerId(id);
+
+    let conversation = localStorage.getItem(
+      "supportflow_conversation_id"
+    );
+
+    if (!conversation) {
+      conversation = crypto.randomUUID();
       localStorage.setItem(
         "supportflow_conversation_id",
-        id
+        conversation
       );
     }
 
-    setConversationId(id);
+    setConversationId(conversation);
 
     await Promise.all([
-      loadConversation(id),
-      loadCustomer(),
-      loadRefunds(),
-      loadTickets(),
+      loadConversation(conversation, id, savedToken),
+      loadCustomer(id, savedToken),
+      loadRefunds(id, savedToken),
+      loadTickets(id, savedToken),
     ]);
+  } catch (error) {
+    console.error("Initialization failed:", error);
   }
+}
 
-  async function loadConversation(id: string) {
+  async function loadConversation(id: string,
+    customer: string,
+  authToken: string
+  ) {
     try {
       const response = await fetch(
-        `${API_URL}/conversations/${id}?customer_id=${CUSTOMER_ID}`
+        `${API_URL}/conversations/${id}?customerId=${customer}`,
+        {headers: {
+           Authorization: `Bearer ${authToken}`,
+    },}
       );
 
-      if (!response.ok) return;
+      if (!response.ok){
+      console.error("Customer request failed:", response.status);
+      return;
+    }
 
       const data = await response.json();
 
@@ -112,10 +154,16 @@ export default function Home() {
     }
   }
 
-  async function loadCustomer() {
+  async function loadCustomer(
+    customer: string,
+  authToken: string
+  ) {
     try {
       const response = await fetch(
-        `${API_URL}/customers/${CUSTOMER_ID}`
+        `${API_URL}/customers/${customer}`,
+        {headers: {
+           Authorization: `Bearer ${authToken}`,
+    },}
       );
 
       if (!response.ok) return;
@@ -132,14 +180,23 @@ export default function Home() {
     }
   }
 
-  async function loadRefunds() {
+  async function loadRefunds(
+    customer: string,
+  authToken: string
+  ) {
     try {
       const response = await fetch(
-        `${API_URL}/customers/${CUSTOMER_ID}/refunds`
+        `${API_URL}/customers/${customer}/refunds`,
+          {headers: {
+           Authorization: `Bearer ${authToken}`,
+    },}
+  
       );
 
-      if (!response.ok) return;
-
+      if (!response.ok) {
+      console.error("Customer request failed:", response.status);
+      return;
+    }
       const data = await response.json();
 
       setRefunds(data.refunds || []);
@@ -148,14 +205,22 @@ export default function Home() {
     }
   }
 
-  async function loadTickets() {
+  async function loadTickets(customer: string,
+    authToken: string) {
     try {
       const response = await fetch(
-        `${API_URL}/customers/${CUSTOMER_ID}/tickets`
+        `${API_URL}/customers/${customer}/tickets`,
+        {
+    headers: {
+      Authorization: `Bearer ${authToken}`,
+    },
+  }
       );
 
-      if (!response.ok) return;
-
+      if (!response.ok) {
+      console.error("Customer request failed:", response.status);
+      return;
+    }
       const data = await response.json();
 
       setTickets(data.tickets || []);
@@ -165,10 +230,11 @@ export default function Home() {
   }
 
   async function refreshCustomerData() {
+    if (!customerId || !token) return;
     await Promise.all([
-      loadCustomer(),
-      loadRefunds(),
-      loadTickets(),
+      loadCustomer(customerId, token),
+      loadRefunds(customerId, token),
+      loadTickets(customerId, token),
     ]);
   }
 
@@ -196,9 +262,10 @@ export default function Home() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            customer_id: CUSTOMER_ID,
+        
             conversation_id: conversationId,
             message,
           }),
@@ -243,9 +310,12 @@ export default function Home() {
   async function clearChat() {
     try {
       await fetch(
-        `${API_URL}/conversations/${conversationId}?customer_id=${CUSTOMER_ID}`,
+        `${API_URL}/conversations/${conversationId}?customerId=${customerId}`,
         {
           method: "DELETE",
+          headers: {
+  Authorization: `Bearer ${token}`,
+},
         }
       );
 
@@ -275,7 +345,10 @@ export default function Home() {
       }
     );
   }
-
+  function logout() {
+  localStorage.removeItem("supportflow_token");
+  window.location.href = "/login";
+}
   return (
     <main className="min-h-screen bg-[#09090b] text-white flex">
 
@@ -321,7 +394,7 @@ export default function Home() {
           </div>
 
         </div>
-
+        
 
         {/* Agent capabilities */}
 
@@ -369,10 +442,16 @@ export default function Home() {
           </p>
 
           <p className="text-xs text-zinc-600">
-            {CUSTOMER_ID}
+            {customerId}
           </p>
 
         </div>
+        <button
+        onClick={logout}
+        className="mt-4 w-full bg-red-600 text-white rounded-lg p-2 text-sm font-semibold hover:bg-red-700 transition"
+      >
+        Logout
+      </button>
 
       </aside>
 
