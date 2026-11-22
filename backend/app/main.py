@@ -49,6 +49,8 @@ allowed_origins.extend(
     for origin in frontend_origins.split(",")
     if origin.strip()
 )
+print("DEBUG FRONTEND_URL:", repr(frontend_origins))
+print("DEBUG ALLOWED ORIGINS:", allowed_origins)
 
 app.add_middleware(
     CORSMiddleware,
