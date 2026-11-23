@@ -1,3 +1,6 @@
+import logging
+
+logger = logging.getLogger(__name__)
 import asyncio
 import os
 
@@ -412,9 +415,10 @@ IMPORTANT RULES:
 
                     error_message = str(e).upper()
 
-                    print(
-                        f"GEMINI ERROR (attempt {attempt + 1}):",
-                        error_message,
+                    logger.exception(
+                        "Gemini API failure on attempt %s: %s",
+                        attempt + 1,
+                        error_message
                     )
 
                     temporary_errors = [
@@ -444,7 +448,10 @@ IMPORTANT RULES:
                         await asyncio.sleep(wait_time)
 
                     else:
-
+                        logger.error(
+    "Gemini request failed after retries. Last error: %s",
+    error_message
+)
                         return {
                             "response": (
                                 "SupportFlow is temporarily unable "
