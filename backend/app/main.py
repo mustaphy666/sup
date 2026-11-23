@@ -53,8 +53,10 @@ print("DEBUG FRONTEND_URL:", repr(frontend_origins))
 print("DEBUG ALLOWED ORIGINS:", allowed_origins)
 
 app.add_middleware(
+
     CORSMiddleware,
     allow_origins=list(set(allowed_origins)),
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
