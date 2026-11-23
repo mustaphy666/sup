@@ -117,16 +117,6 @@ async def validation_exception_handler(request, exc):
 @app.on_event("startup")
 async def startup_event():
     init_database()
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 
 # ============================================================
